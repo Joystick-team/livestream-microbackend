@@ -1,5 +1,6 @@
-const express = require('express')
-const {WebSocketServer} = require('ws')
+const express = require("express");
+const Websocket = require("ws");
+const http = require("http");
 
 // const webserver = express()
 //     .use((req, res) =>
@@ -7,63 +8,86 @@ const {WebSocketServer} = require('ws')
 //     )
 //     .listen(5000, () => console.log(`Listening on ${5000}`))
 
-const sockserver = new WebSocketServer({port: 5000})
+const app = express();
+const server = http.createServer(app);
 
-sockserver.on('connection', (ws, req) => {
-    let match;
-    if (!(match = req.url.match(/^\/rtmp\/(.*)$/))) {
-        ws.terminate();
-        return;
-    }
+const sockserver = new Websocket.Server({ server });
 
-    const rtmpUrl = decodeURIComponent(match[1]);
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Methods", "*");
+  next();
+});
 
-    console.log('Target RTMP URL:', rtmpUrl);
+sockserver.on("connection", (ws, req) => {
+  let match;
+  if (!(match = req.url.match(/^\/rtmp\/(.*)$/))) {
+    ws.terminate();
+    return;
+  }
 
-    console.log('New client connected!')
+  const rtmpUrl = decodeURIComponent(match[1]);
 
-    ws.send('connection established')
+  console.log("Target RTMP URL:", rtmpUrl);
 
-    ws.on('close', () => console.log('Client has disconnected!'))
+  console.log("New client connected!");
 
-    const ffmpeg = child_process.spawn('ffmpeg', [
-        '-f', 'lavfi', '-i', 'anullsrc',
+  ws.send("connection established");
 
-        '-i', '-',
+  ws.on("close", () => console.log("Client has disconnected!"));
 
-        '-shortest',
+  const ffmpeg = child_process.spawn("ffmpeg", [
+    "-f",
+    "lavfi",
+    "-i",
+    "anullsrc",
 
-        '-vcodec', 'copy',
+    "-i",
+    "-",
 
-        '-acodec', 'aac',
+    "-shortest",
 
-        '-f', 'flv',
+    "-vcodec",
+    "copy",
 
-        rtmpUrl
-    ]);
+    "-acodec",
+    "aac",
 
-    ffmpeg.on('close', (code, signal) => {
-        console.log('FFmpeg child process closed, code ' + code + ', signal ' + signal);
-        ws.terminate();
-    });
+    "-f",
+    "flv",
 
-    ffmpeg.stdin.on('error', (e) => {
-        console.log('FFmpeg STDIN Error', e);
-    });
+    rtmpUrl,
+  ]);
 
-    ffmpeg.stderr.on('data', (data) => {
-        console.log('FFmpeg STDERR:', data.toString());
-    });
+  ffmpeg.on("close", (code, signal) => {
+    console.log(
+      "FFmpeg child process closed, code " + code + ", signal " + signal
+    );
+    ws.terminate();
+  });
 
-    ws.on('message', data => {
-        ffmpeg.stdin.write(data);
-    })
+  ffmpeg.stdin.on("error", (e) => {
+    console.log("FFmpeg STDIN Error", e);
+  });
 
-    ws.on('close', (e) => {
-        ffmpeg.kill('SIGINT');
-    });
+  ffmpeg.stderr.on("data", (data) => {
+    console.log("FFmpeg STDERR:", data.toString());
+  });
 
-    ws.onerror = function () {
-        console.log('websocket error')
-    }
-})
+  ws.on("message", (data) => {
+    ffmpeg.stdin.write(data);
+  });
+
+  ws.on("close", (e) => {
+    ffmpeg.kill("SIGINT");
+  });
+
+  ws.onerror = function () {
+    console.log("websocket error");
+  };
+});
+
+server.listen(8000, () => {
+  console.log("Server is running on port 8000");
+});
