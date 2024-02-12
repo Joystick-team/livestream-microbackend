@@ -1,24 +1,18 @@
-FROM node:lts-buster
-LABEL authors="charles"
+FROM keymetrics/pm2:latest-alpine
 
-# Install ffmpeg
-RUN apt-get update && \
-    apt-get install -y ffmpeg && \
-    apt-get clean
+# Bundle APP files
+COPY src src/
+COPY package.json .
+COPY ecosystem.config.js .
 
-# Set working directory
-WORKDIR /usr/src/app
+# Install app dependencies
+ENV NPM_CONFIG_LOGLEVEL warn
+RUN npm install --production
 
-# Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
-
-# Install Node.js dependencies
-RUN npm i -g pm2
-RUN npm install
-
-# Copy the rest of the application code
-COPY . .
-
+# Expose the listening port of your app
 EXPOSE 8000
 
-CMD ["pm2", "start", "index.js"]
+# Show current folder structure in logs
+RUN ls -al -R
+
+CMD [ "pm2-runtime", "start", "ecosystem.config.js" ]
