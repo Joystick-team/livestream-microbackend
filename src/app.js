@@ -92,6 +92,6 @@ socket.on("connection", (ws, req) => {
   };
 });
 
-server.listen(8000, () => {
+server.listen(5005, () => {
   console.log("Server is running on port 8000");
 });
